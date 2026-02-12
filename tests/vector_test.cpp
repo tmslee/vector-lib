@@ -1,6 +1,6 @@
-#include <vector_lib/vector.hpp>
-
 #include <gtest/gtest.h>
+
+#include <vector_lib/vector.hpp>
 
 TEST(VectorTest, DefaultConstructor) {
     vector_lib::Vector<int> v;

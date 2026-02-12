@@ -8,7 +8,7 @@ namespace vector_lib {
 
 template <typename T, typename Allocator = std::allocator<T>>
 class Vector {
-public:
+   public:
     // --- type aliases ---
     using value_type = T;
     using allocator_type = Allocator;
@@ -24,16 +24,22 @@ public:
     ~Vector() = default;
 
     // --- capacity ---
-    [[nodiscard]] bool empty() const noexcept { return size_ == 0; }
-    [[nodiscard]] size_type size() const noexcept { return size_; }
-    [[nodiscard]] size_type capacity() const noexcept { return capacity_; }
+    [[nodiscard]] bool empty() const noexcept {
+        return size_ == 0;
+    }
+    [[nodiscard]] size_type size() const noexcept {
+        return size_;
+    }
+    [[nodiscard]] size_type capacity() const noexcept {
+        return capacity_;
+    }
 
-private:
+   private:
     pointer data_ = nullptr;
     size_type size_ = 0;
     size_type capacity_ = 0;
 };
 
-} //namespace vector_lib
+}  // namespace vector_lib
 
 #endif
