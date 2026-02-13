@@ -114,7 +114,7 @@ class Vector {
         }
         alloc_traits::construct(alloc_, data_ + size_, value);
         ++size_;
-        return data_[size_-1];
+        return data_[size_ - 1];
     }
 
     reference push_back(T&& value) {
@@ -123,17 +123,17 @@ class Vector {
         }
         alloc_traits::construct(alloc_, data_ + size_, std::move(value));
         ++size_;
-        return data_[size_-1];
+        return data_[size_ - 1];
     }
 
     template <typename... Args>
     reference emplace_back(Args&&... args) {
-        if(size_ == capacity_) {
+        if (size_ == capacity_) {
             grow();
         }
-        alloc_traits::construct(alloc_, data_+size_, std::forward<Args>(args)...);
+        alloc_traits::construct(alloc_, data_ + size_, std::forward<Args>(args)...);
         ++size_;
-        return data_[size_-1];
+        return data_[size_ - 1];
     }
 
     void clear() noexcept {
