@@ -90,5 +90,24 @@ vector-lib/
 - **Rollback pattern**: track how many elements were constructed (`constructed` counter), catch all exceptions, destroy what was built, deallocate, rethrow. The original buffer is never touched until all new elements are safely constructed.
 - **Copy-and-swap inherits strong guarantee**: copy assignment uses copy ctor (now exception-safe) + swap (noexcept). The strong guarantee composes naturally.
 
+---
+
+## 2026-02-12 — emplace_back & Perfect Forwarding (feat/emplace)
+
+### What was done
+- Added `emplace_back(Args&&... args)` — constructs elements in-place, forwarding arguments directly to T's constructor
+- Updated `push_back` to return `reference` (matching C++17 `std::vector` behavior)
+- Added `#include <utility>` for `std::forward` (previously relying on transitive include from `<memory>`)
+
+### Key concepts
+- **Variadic templates**: `template <typename... Args>` accepts a *parameter pack* — zero or more type parameters. The `...` syntax is the *pack expansion* operator. This lets `emplace_back` accept any number of constructor arguments without needing separate overloads.
+- **Forwarding references**: `Args&&` where `Args` is a deduced template parameter is a *forwarding reference* (not an rvalue reference). It binds to both lvalues and rvalues, preserving the original value category.
+- **Perfect forwarding**: `std::forward<Args>(args)...` preserves each argument's value category when passing it to the constructor. Without it, all arguments decay to lvalues inside the function body, defeating move semantics.
+- **In-place construction**: `push_back(Point(1, 2))` creates a temporary then moves it. `emplace_back(1, 2)` constructs directly in the buffer — no temporary, no move. The arguments are forwarded straight to `allocator_traits::construct`.
+
+### Lessons learned
+- `-Wshadow` catches constructor parameters that shadow member variables. `Point(int x, int y)` shadows `Point::x` and `Point::y`. Fix: use different parameter names (`px`, `py`).
+- Always explicitly include headers you use (`<utility>` for `std::forward`/`std::move`). Transitive includes work until they don't — a different compiler or standard library version may not pull them in.
+
 ### Next up
-- `emplace_back` with variadic templates and perfect forwarding
+- Iterators (`begin`/`end`, `cbegin`/`cend`) and range-based for loop support

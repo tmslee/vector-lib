@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <utility>
 
 namespace vector_lib {
 
@@ -107,20 +108,32 @@ class Vector {
     }
 
     // --- modifiers ---
-    void push_back(const T& value) {
+    reference push_back(const T& value) {
         if (size_ == capacity_) {
             grow();
         }
         alloc_traits::construct(alloc_, data_ + size_, value);
         ++size_;
+        return data_[size_ - 1];
     }
 
-    void push_back(T&& value) {
+    reference push_back(T&& value) {
         if (size_ == capacity_) {
             grow();
         }
         alloc_traits::construct(alloc_, data_ + size_, std::move(value));
         ++size_;
+        return data_[size_ - 1];
+    }
+
+    template <typename... Args>
+    reference emplace_back(Args&&... args) {
+        if (size_ == capacity_) {
+            grow();
+        }
+        alloc_traits::construct(alloc_, data_ + size_, std::forward<Args>(args)...);
+        ++size_;
+        return data_[size_ - 1];
     }
 
     void clear() noexcept {
