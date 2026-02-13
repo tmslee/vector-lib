@@ -39,10 +39,21 @@ class Vector {
         if (other.size_ > 0) {
             data_ = alloc_traits::allocate(alloc_, other.size_);
             capacity_ = other.size_;
-            for (size_type i = 0; i < other.size_; ++i) {
-                alloc_traits::construct(alloc_, data_ + i, other.data_[i]);
+            try {
+                for (size_type i = 0; i < other.size_; ++i) {
+                    alloc_traits::construct(alloc_, data_ + i, other.data_[i]);
+                    ++size_;
+                }
+            } catch (...) {
+                for (size_type i = 0; i < size_; ++i) {
+                    alloc_traits::destroy(alloc_, data_ + i);
+                }
+                alloc_traits::deallocate(alloc_, data_, capacity_);
+                data_ = nullptr;
+                size_ = 0;
+                capacity_ = 0;
+                throw;
             }
-            size_ = other.size_;
         }
     }
 
@@ -139,9 +150,22 @@ class Vector {
     void grow() {
         size_type new_cap = capacity_ == 0 ? 1 : capacity_ * 2;
         pointer new_data = alloc_traits::allocate(alloc_, new_cap);
+        size_type constructed = 0;
+
+        try {
+            for (size_type i = 0; i < size_; ++i) {
+                alloc_traits::construct(alloc_, new_data + i, std::move_if_noexcept(data_[i]));
+                ++constructed;
+            }
+        } catch (...) {
+            for (size_type i = 0; i < constructed; ++i) {
+                alloc_traits::destroy(alloc_, new_data + i);
+            }
+            alloc_traits::deallocate(alloc_, new_data, new_cap);
+            throw;
+        }
 
         for (size_type i = 0; i < size_; ++i) {
-            alloc_traits::construct(alloc_, new_data + i, std::move(data_[i]));
             alloc_traits::destroy(alloc_, data_ + i);
         }
 

@@ -1,7 +1,25 @@
 #include <gtest/gtest.h>
 
+#include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <vector_lib/vector.hpp>
+
+struct ThrowOnCopy {
+    int value;
+    explicit ThrowOnCopy(int v) : value(v) {}
+
+    ThrowOnCopy(const ThrowOnCopy& other) : value(other.value) {
+        if (value == 3) {
+            throw std::runtime_error("copy failed");
+        }
+    }
+
+    ThrowOnCopy(ThrowOnCopy&&) noexcept = default;
+    ThrowOnCopy& operator=(const ThrowOnCopy&) = default;
+    ThrowOnCopy& operator=(ThrowOnCopy&&) noexcept = default;
+    ~ThrowOnCopy() = default;
+};
 
 TEST(VectorTest, DefaultConstructor) {
     vector_lib::Vector<int> v;
@@ -132,4 +150,29 @@ TEST(VectorTest, MoveAssignment) {
 TEST(VectorTest, MoveConstructorIsNoexcept) {
     EXPECT_TRUE(std::is_nothrow_move_constructible_v<vector_lib::Vector<int>>);
     EXPECT_TRUE(std::is_nothrow_move_assignable_v<vector_lib::Vector<int>>);
+}
+
+TEST(VectorTest, GrowExceptionSafety) {
+    // ThrowOnCopy has noexcept move, so grow() will move - no throw
+    vector_lib::Vector<ThrowOnCopy> v;
+    for (int i = 0; i < 10; ++i) {
+        v.push_back(ThrowOnCopy(i));
+    }
+    EXPECT_EQ(v.size(), 10);
+}
+
+TEST(VectorTest, CopyConstructorExceptionSafety) {
+    // element with value=3 throws on copy
+    vector_lib::Vector<ThrowOnCopy> v;
+    v.push_back(ThrowOnCopy(1));
+    v.push_back(ThrowOnCopy(2));
+    v.push_back(ThrowOnCopy(3));  // this one will throw when copied
+
+    EXPECT_THROW({ vector_lib::Vector<ThrowOnCopy> copy(v); }, std::runtime_error);
+
+    // original must be untouched
+    EXPECT_EQ(v.size(), 3);
+    EXPECT_EQ(v[0].value, 1);
+    EXPECT_EQ(v[1].value, 2);
+    EXPECT_EQ(v[2].value, 3);
 }
