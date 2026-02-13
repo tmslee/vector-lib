@@ -33,6 +33,68 @@ class Vector {
         }
     }
 
+    // --- copy ctor ---
+    Vector(const Vector& other)
+        : alloc_(alloc_traits::select_on_container_copy_construction(other.alloc_)) {
+        if (other.size_ > 0) {
+            data_ = alloc_traits::allocate(alloc_, other.size_);
+            capacity_ = other.size_;
+            try {
+                for (size_type i = 0; i < other.size_; ++i) {
+                    alloc_traits::construct(alloc_, data_ + i, other.data_[i]);
+                    ++size_;
+                }
+            } catch (...) {
+                for (size_type i = 0; i < size_; ++i) {
+                    alloc_traits::destroy(alloc_, data_ + i);
+                }
+                alloc_traits::deallocate(alloc_, data_, capacity_);
+                data_ = nullptr;
+                size_ = 0;
+                capacity_ = 0;
+                throw;
+            }
+        }
+    }
+
+    // --- copy assignment ---
+    Vector& operator=(const Vector& other) {
+        if (this != &other) {
+            Vector tmp(other);
+            swap(tmp);
+        }
+        return *this;
+    }
+
+    // --- move ctor ---
+    Vector(Vector&& other) noexcept
+        : data_(other.data_),
+          size_(other.size_),
+          capacity_(other.capacity_),
+          alloc_(std::move(other.alloc_)) {
+        other.data_ = nullptr;
+        other.size_ = 0;
+        other.capacity_ = 0;
+    }
+
+    // --- move assignment ---
+    Vector& operator=(Vector&& other) noexcept {
+        if (this != &other) {
+            clear();
+            if (data_) {
+                alloc_traits::deallocate(alloc_, data_, capacity_);
+            }
+            data_ = other.data_;
+            size_ = other.size_;
+            capacity_ = other.capacity_;
+            alloc_ = std::move(other.alloc_);
+            other.data_ = nullptr;
+            other.size_ = 0;
+            other.capacity_ = 0;
+        }
+        return *this;
+    }
+
     // --- capacity ---
     [[nodiscard]] bool empty() const noexcept {
         return size_ == 0;
@@ -68,6 +130,14 @@ class Vector {
         size_ = 0;
     }
 
+    void swap(Vector& other) noexcept {
+        using std::swap;
+        swap(data_, other.data_);
+        swap(size_, other.size_);
+        swap(capacity_, other.capacity_);
+        swap(alloc_, other.alloc_);
+    }
+
     // ---element access ---
     reference operator[](size_type index) {
         return data_[index];
@@ -80,9 +150,22 @@ class Vector {
     void grow() {
         size_type new_cap = capacity_ == 0 ? 1 : capacity_ * 2;
         pointer new_data = alloc_traits::allocate(alloc_, new_cap);
+        size_type constructed = 0;
+
+        try {
+            for (size_type i = 0; i < size_; ++i) {
+                alloc_traits::construct(alloc_, new_data + i, std::move_if_noexcept(data_[i]));
+                ++constructed;
+            }
+        } catch (...) {
+            for (size_type i = 0; i < constructed; ++i) {
+                alloc_traits::destroy(alloc_, new_data + i);
+            }
+            alloc_traits::deallocate(alloc_, new_data, new_cap);
+            throw;
+        }
 
         for (size_type i = 0; i < size_; ++i) {
-            alloc_traits::construct(alloc_, new_data + i, std::move(data_[i]));
             alloc_traits::destroy(alloc_, data_ + i);
         }
 
