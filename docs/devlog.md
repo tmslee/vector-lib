@@ -47,15 +47,32 @@ vector-lib/
 - Added `grow()` with 2x growth factor for amortized O(1) push_back
 
 ### Key concepts
-- **Separation of allocation and construction**: `allocate()` gets raw memory, `construct()` builds objects in it, `destroy()` calls destructors without freeing, `deallocate()` frees the memory block. This is necessary because capacity > size — uninitialized slots exist in the buffer.
+- **Separation of allocation and construction**: `allocate()` gets raw memory, `construct()` builds objects in it, `destroy()` calls destructors without freeing, `deallocate()` frees the memory block. Necessary because capacity > size — uninitialized slots exist in the buffer.
 - **`std::allocator_traits`**: never call the allocator directly. The traits layer provides defaults for custom allocators that don't define every method.
-- **Two `push_back` overloads**: `const T&` copies lvalues, `T&&` moves rvalues. This is the core of move semantics — `v.push_back(std::move(x))` avoids a copy.
-- **`[[no_unique_address]]`**: C++20 attribute that lets the compiler optimize away storage for stateless types (like `std::allocator`). Without it, the allocator member takes 1 byte + padding.
+- **Two `push_back` overloads**: `const T&` copies lvalues, `T&&` moves rvalues.
+- **`[[no_unique_address]]`**: C++20 attribute that optimizes away storage for stateless types like `std::allocator`.
 
 ### Lessons learned
 - `-Wsign-conversion` catches implicit `int` → `size_type` conversions. Use `std::size_t` for loop indices over container sizes, and `static_cast<int>()` when you intentionally narrow.
-- ASan validates destructor correctness — if you leak, it tells you exactly where the allocation happened.
+
+---
+
+## 2026-02-12 — Rule of 5: Copy & Move Semantics (feat/copy-move)
+
+### What was done
+- Copy constructor: deep copy with tight allocation (`capacity = size`, not `other.capacity`)
+- Copy assignment: copy-and-swap idiom
+- Move constructor: `noexcept` pointer steal, O(1)
+- Move assignment: `noexcept`, cleanup then steal
+- `swap()` member function
+
+### Key concepts
+- **Rule of 5**: if you define any of {destructor, copy ctor, copy assign, move ctor, move assign}, define all five. Our custom destructor means the compiler won't generate correct copy/move operations.
+- **Copy-and-swap**: `operator=(const Vector& other)` creates a temporary copy, swaps with it, and the old data dies with `tmp`. Gives the **strong exception guarantee** for free — if the copy throws, `*this` is untouched.
+- **`noexcept` on move operations**: critical contract. `std::vector` checks `is_nothrow_move_constructible` to decide whether to move or copy during reallocation. Without `noexcept`, containers fall back to copying for safety.
+- **`select_on_container_copy_construction`**: lets the allocator decide how it should be copied — important for stateful allocators.
+- **Tight allocation on copy**: copy allocates exactly `other.size_`, not `other.capacity_`. Capacity is an implementation detail of growth history, not data.
 
 ### Next up
-- Rule of 5 (copy/move constructors and assignment operators)
-- Exception safety during reallocation
+- Exception safety in `grow()` — what happens if a constructor throws mid-reallocation?
+- `emplace_back` with variadic templates and perfect forwarding
