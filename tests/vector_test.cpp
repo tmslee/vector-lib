@@ -176,3 +176,45 @@ TEST(VectorTest, CopyConstructorExceptionSafety) {
     EXPECT_EQ(v[1].value, 2);
     EXPECT_EQ(v[2].value, 3);
 }
+
+struct Point {
+    int x;
+    int y;
+    Point(int px, int py) : x(px), y(py) {}
+};
+
+TEST(VectorTest, EmplaceBackBasic) {
+    vector_lib::Vector<Point> v;
+    v.emplace_back(1, 2);
+    v.emplace_back(3, 4);
+    EXPECT_EQ(v.size(), 2);
+    EXPECT_EQ(v[0].x, 1);
+    EXPECT_EQ(v[0].y, 2);
+    EXPECT_EQ(v[1].x, 3);
+    EXPECT_EQ(v[1].y, 4);
+}
+
+TEST(VectorTest, EmplaceBackReturnsReference) {
+    vector_lib::Vector<int> v;
+    auto& ref = v.emplace_back(42);
+    EXPECT_EQ(ref, 42);
+    ref = 99;
+    EXPECT_EQ(v[0], 99);
+}
+
+TEST(VectorTest, EmplaceBackString) {
+    vector_lib::Vector<std::string> v;
+    // construct string from count + char — no temporary string created
+    v.emplace_back(5, 'a');
+    EXPECT_EQ(v[0], "aaaaa");
+}
+
+TEST(VectorTest, EmplaceBackGrowth) {
+    vector_lib::Vector<Point> v;
+    for (int i = 0; i < 50; ++i) {
+        v.emplace_back(i, i * 10);
+    }
+    EXPECT_EQ(v.size(), 50);
+    EXPECT_EQ(v[49].x, 49);
+    EXPECT_EQ(v[49].y, 490);
+}
