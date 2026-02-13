@@ -73,6 +73,22 @@ vector-lib/
 - **`select_on_container_copy_construction`**: lets the allocator decide how it should be copied — important for stateful allocators.
 - **Tight allocation on copy**: copy allocates exactly `other.size_`, not `other.capacity_`. Capacity is an implementation detail of growth history, not data.
 
+---
+
+## 2026-02-12 — Exception Safety (feat/exception-safety)
+
+### What was done
+- `grow()` now uses `std::move_if_noexcept` — moves when T's move ctor is noexcept, copies otherwise
+- try/catch rollback in `grow()`: on failure, destroy constructed elements in new buffer, deallocate, rethrow
+- try/catch rollback in copy constructor: incremental `size_` tracking, clean up on throw
+- Both provide the **strong exception guarantee**
+- Added `ThrowOnCopy` test type to verify exception safety
+
+### Key concepts
+- **Three exception safety levels**: nothrow (can't throw), strong (if it throws, state unchanged), basic (valid but unspecified state). `grow()` and copy ctor now provide strong.
+- **`std::move_if_noexcept`**: returns `T&&` if `is_nothrow_move_constructible`, `const T&` otherwise. This is how `std::vector` decides whether to move or copy during reallocation — moving is faster but if it throws mid-way, the original data is destroyed. Copying preserves originals as backup.
+- **Rollback pattern**: track how many elements were constructed (`constructed` counter), catch all exceptions, destroy what was built, deallocate, rethrow. The original buffer is never touched until all new elements are safely constructed.
+- **Copy-and-swap inherits strong guarantee**: copy assignment uses copy ctor (now exception-safe) + swap (noexcept). The strong guarantee composes naturally.
+
 ### Next up
-- Exception safety in `grow()` — what happens if a constructor throws mid-reallocation?
 - `emplace_back` with variadic templates and perfect forwarding
